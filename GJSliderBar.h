@@ -18,7 +18,10 @@ typedef void(^IndexCallBack)(NSInteger index);
 @property(strong,nonatomic)UIColor* itemColor;
 @property(strong,nonatomic)UIColor* itemSelectColor;
 
+@property(assign,nonatomic)BOOL enabled;
+
+
 @property(copy,nonatomic)IndexCallBack slideBarItemSelectedCallback;
 @property(nonatomic,readonly)NSInteger currentIndex;
--(void)selectItemWithIndex:(NSInteger)index;
+-(void)selectItemWithIndex:(NSInteger)index animated:(BOOL)animated;
 @end

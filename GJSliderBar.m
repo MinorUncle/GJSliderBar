@@ -23,11 +23,11 @@
 
 @end
 @implementation GJSliderBarCell
+
 -(UILabel *)titleLab{
     if (_titleLab == nil) {
         _titleLab = [[UILabel alloc]initWithFrame:self.bounds];
         [self.contentView addSubview:_titleLab];
-        self.backgroundColor = [UIColor grayColor];
         
     }
     return _titleLab;
@@ -47,7 +47,7 @@
     NSMutableArray<NSValue*>* _itemSizeCache;
 }
 @property(strong,nonatomic)UICollectionView* collectionView;
-@property(strong,nonatomic)UIView* bottonLine;
+@property(strong,nonatomic)UIView* bottomLine;
 
 @end
 
@@ -59,13 +59,17 @@ static NSString * const reuseIdentifier = @"GJSliderBarCell";
 {
     self = [super initWithFrame:frame];
     if (self) {
+        _enabled = YES;
+        self.itemFont = [UIFont systemFontOfSize:20];
         UICollectionViewFlowLayout* layout = [[UICollectionViewFlowLayout alloc]init];
         layout.minimumInteritemSpacing = DEFAULT_ITEM_MARGGIN;
+
         layout.scrollDirection = UICollectionViewScrollDirectionHorizontal;
         self.collectionView = [[UICollectionView alloc]initWithFrame:self.bounds collectionViewLayout:layout];
         self.collectionView.showsVerticalScrollIndicator = NO;
         self.collectionView.showsHorizontalScrollIndicator = NO;
-        self.collectionView.backgroundColor = [UIColor greenColor];
+        self.collectionView.backgroundColor = [UIColor clearColor];
+        [self.collectionView addSubview:self.bottomLine];
         
         [self.collectionView registerClass:[GJSliderBarCell class] forCellWithReuseIdentifier:reuseIdentifier];
         self.collectionView.delegate = self;
@@ -75,6 +79,15 @@ static NSString * const reuseIdentifier = @"GJSliderBarCell";
     }
     return self;
 }
+-(void)setFrame:(CGRect)frame{
+    [super setFrame:frame];
+    self.collectionView.frame = self.bounds;
+    [self updateCache];
+    [self.collectionView.collectionViewLayout invalidateLayout];
+    [self selectItemWithIndex:_currentIndex animated:NO];
+
+}
+
 -(UIColor *)itemSelectColor{
     if (_itemSelectColor == nil) {
         _itemSelectColor = DEFAULT_SELECT_COLOR;
@@ -90,7 +103,7 @@ static NSString * const reuseIdentifier = @"GJSliderBarCell";
 -(void)setTitleNames:(NSArray<NSString *> *)titleNames{
     _titleNames = titleNames;
     [self updateCache];
-    [self selectItemWithIndex:0];
+    [self selectItemWithIndex:_currentIndex animated:NO];
     [self.collectionView reloadData];
 }
 -(void)updateCache{
@@ -107,20 +120,17 @@ static NSString * const reuseIdentifier = @"GJSliderBarCell";
         [_itemSizeCache addObject:[NSValue valueWithCGSize:size]];
     }
 }
--(UIView *)bottonLine{
-    if (_bottonLine == nil) {
-        CGRect rect;
-        rect.origin.x = 0;
-        rect.origin.y = self.bounds.size.height - BOTTON_LINE_HEIGHT;
-        rect.size.height = BOTTON_LINE_HEIGHT;
-        if (_itemSizeCache.count>0) {
-            rect.size.width = [_itemSizeCache[0] CGSizeValue].width;
-        }
-        _bottonLine = [[UIView alloc]initWithFrame:rect];
-        _bottonLine.backgroundColor = DEFAULT_SELECT_COLOR;
-        [self.collectionView addSubview:_bottonLine];
+
+
+
+-(UIView *)bottomLine{
+    if (_bottomLine == nil) {
+        _bottomLine = [[UIView alloc]init];
+        _bottomLine.backgroundColor = DEFAULT_SELECT_COLOR;
+        [self.collectionView addSubview:_bottomLine];
     }
-    return _bottonLine;
+
+    return _bottomLine;
 }
 /*
 #pragma mark - Navigation
@@ -147,35 +157,59 @@ static NSString * const reuseIdentifier = @"GJSliderBarCell";
     GJSliderBarCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:reuseIdentifier forIndexPath:indexPath];
     cell.title = self.titleNames[indexPath.row];
     cell.titleLab.font = self.itemFont;
-    cell.titleLab.textColor = self.itemColor;
+    cell.titleLab.textAlignment = NSTextAlignmentCenter;
+    if (indexPath.row == _currentIndex) {
+        cell.titleLab.textColor = self.itemSelectColor;
+    }else{
+        cell.titleLab.textColor = self.itemColor;
+    }
     // Configure the cell
     
     return cell;
 }
--(void)selectItemWithIndex:(NSInteger)index{
+-(void)selectItemWithIndex:(NSInteger)index animated:(BOOL)animated{
     if (index>=_itemSizeCache.count) {
         NSLog(@"index 索引错误");
         return;
     }
+    
+    
     NSIndexPath* indexPath = [NSIndexPath indexPathForRow:index inSection:0];
-    CGRect rect = self.bottonLine.frame;
-    rect.origin.x = 0;
-    for (int i =0; i<index; i++) {
-        CGSize size = [_itemSizeCache[i] CGSizeValue];
-        rect.origin.x += size.width+DEFAULT_ITEM_MARGGIN;
-    }
+    CGRect rect = CGRectZero;
     rect.size.width = [_itemSizeCache[index] CGSizeValue].width;
+    rect.size.height = BOTTON_LINE_HEIGHT;
+    rect.origin.y = self.bounds.size.height - BOTTON_LINE_HEIGHT;
+    
+    CGFloat totalW = 0;
+    for (int i = 0; i<_itemSizeCache.count; i++) {
+        totalW += _itemSizeCache[i].CGSizeValue.width;
+    }
+    CGFloat margin = 0;
+    if (_itemSizeCache.count > 1) {
+        margin = (self.collectionView.collectionViewLayout.collectionViewContentSize.width - totalW)/(_itemSizeCache.count - 1);
+    }
+    for (int i = 0; i<index; i++) {
+        rect.origin.x += _itemSizeCache[i].CGSizeValue.width+margin;
+    }
     GJSliderBarCell* beforeCell = (GJSliderBarCell*)[self.collectionView cellForItemAtIndexPath:[NSIndexPath indexPathForRow:_currentIndex inSection:0]];
     beforeCell.titleLab.textColor = self.itemColor;
     
     GJSliderBarCell* cell = (GJSliderBarCell*)[self.collectionView cellForItemAtIndexPath:indexPath];
-    
-    [UIView animateWithDuration:0.2 animations:^{
-        self.bottonLine.frame = rect;
+//    rect.origin.x = cell.frame.origin.x;
+//    rect.size.width = cell.frame.size.width;
+    CGSize size = [self.collectionView.collectionViewLayout collectionViewContentSize];
+    if (animated) {
+        [UIView animateWithDuration:0.2 animations:^{
+            self.bottomLine.frame = rect;
+            cell.titleLab.textColor = self.itemSelectColor;
+        }];
+    }else{
+        self.bottomLine.frame = rect;
         cell.titleLab.textColor = self.itemSelectColor;
-    }];
+    }
+
     _currentIndex = index;
-    [self.collectionView scrollToItemAtIndexPath:indexPath atScrollPosition:UICollectionViewScrollPositionCenteredHorizontally animated:YES];
+    [self.collectionView scrollToItemAtIndexPath:indexPath atScrollPosition:UICollectionViewScrollPositionCenteredHorizontally animated:animated];
 }
 
 #pragma mark <UICollectionViewDelegate>
@@ -183,11 +217,16 @@ static NSString * const reuseIdentifier = @"GJSliderBarCell";
 -(CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath{
     return [_itemSizeCache[indexPath.row] CGSizeValue];
 }
-
+-(void)setEnabled:(BOOL)enabled{
+    _enabled = enabled;
+}
 -(void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath{
+    if (!_enabled) {
+        return;
+    }
     [collectionView scrollToItemAtIndexPath:indexPath atScrollPosition:UICollectionViewScrollPositionCenteredHorizontally animated:YES];
     
-    [self selectItemWithIndex:indexPath.row];
+    [self selectItemWithIndex:indexPath.row animated:YES];
     
     if (self.slideBarItemSelectedCallback != nil) {
         self.slideBarItemSelectedCallback(indexPath.row);
